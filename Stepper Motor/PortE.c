@@ -14,28 +14,29 @@
 #define b6  0x40;
 #define b7  0x80;
 
-
+volatile uint8_t update = 0;
 volatile uint32_t NextState = 0; 
+
+void DisableInterrupts(void);
 //========================================================================================
 //Initialize Port E
 
 void PortE_Init(void){ volatile uint32_t delay;
-  SYSCTL_RCGCGPIO_R |= b4;  														// Activate clock for Port F
-  delay = SYSCTL_RCGCGPIO_R;        										// Allow time for clock to start
-  GPIO_PORTE_AMSEL_R &= ~0xF;        										// Disable analog on PF
-  GPIO_PORTE_PCTL_R &= ~0x7FFF;   											// PCTL GPIO on PF4-0
-  GPIO_PORTE_DIR_R &= ~0xF;  														// PF4,PF0 in, PF3-1 out
-  GPIO_PORTE_AFSEL_R &= ~0xF;        										// Disable alternate functions on PF7-0
-  GPIO_PORTE_PUR_R &= ~0xF;          										// Enable pull-up on PF0 and PF4
-  GPIO_PORTE_DEN_R |= 0xF;        											// Enable digital I/O on PF4-0
-	GPIO_PORTE_IEV_R |= 0xF;
-	GPIO_PORTE_IS_R &= ~0x9;    													// PF1 & PF4 is edge-sensitive
-	GPIO_PORTE_IS_R |= 0x6;    														// PF1 & PF4 is edge-sensitive
-	GPIO_PORTE_IBE_R &= ~0xF;   													// PF1 & PF4 is both edges
-	GPIO_PORTE_IM_R |= 0xF;      													// Mask set to interrupt on PF1 & PF4 only       	*** No IME bit as mentioned in Book ***
-	NVIC_PRI1_R = (NVIC_PRI1_R&0xFFFFFF0F)|0x00000040;		// Priority 2		
-  NVIC_EN0_R = 0x10;     	 												// Enable interrupt 30 in NVIC
-	GPIO_PORTE_ICR_R = 0xF;    													// Clear flag 4 and 1
+  SYSCTL_RCGCGPIO_R |= b4;  														//Activate clock for Port E
+  delay = SYSCTL_RCGCGPIO_R;        										//Allow time for clock to start
+  GPIO_PORTE_AMSEL_R &= ~0xF;        										//Disable analog on PE3-0
+  GPIO_PORTE_PCTL_R &= ~0x7FFF;   											//PF3-0 are GPIO
+  GPIO_PORTE_DIR_R &= ~0xF;  														//PF3-0 are inputs
+  GPIO_PORTE_AFSEL_R &= ~0xF;        										//Disable alternate functions of PE3-0
+  GPIO_PORTE_PUR_R &= ~0xF;          										//Disable pull-up on PE3-0
+  GPIO_PORTE_DEN_R |= 0xF;        											//Enable digital I/O on PE3-0
+	GPIO_PORTE_IEV_R |= 0xF;															//Interrupts occur on rising edge or when level is high
+	GPIO_PORTE_IS_R = (GPIO_PORTE_IS_R & ~0x09) | 0x06;   //PF3, PF0 are edge sensitive. PF2, PF1 are level sensitive
+	GPIO_PORTE_IBE_R &= ~0xF;   													//PE3-0 are controlled by the IS register
+	GPIO_PORTE_IM_R |= 0xF;      													//Mask set to interrupt on PF1 & PF4 only       	*** No IME bit as mentioned in Book ***
+	NVIC_PRI1_R = (NVIC_PRI1_R&0xFFFFFF0F)|0x00000040;		//Priority 2		
+  NVIC_EN0_R = 0x10;     	 															//Enable interrupt 4 in NVIC
+	GPIO_PORTE_ICR_R = 0xF;    														//Clear flags on PE3-0
 	GPIO_PORTE_DATA_R = 0;
 }
 	
@@ -48,5 +49,7 @@ void GPIOPortE_Handler(){
 		NextState = 1;}
 	if ((GPIO_PORTE_MIS_R & 12) != 0){											//Right buttons
 		NextState = 0;}
-	SysTick_Wait10ms(5);																	// wait 10 ms * current state's Time value
-}//end Portehandler
+	SysTick_Wait10ms(5);
+	update = 1;		// wait 10 ms * current state's Time value
+	DisableInterrupts();
+}//end PortE handler
